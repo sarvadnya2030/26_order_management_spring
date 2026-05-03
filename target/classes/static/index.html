@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Order Management</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body{background:#0f172a;color:#e2e8f0;min-height:100vh;padding:30px}
+  .card{background:#1e293b;border:1px solid #334155;border-radius:12px}
+  .card-header{background:#0891b2;color:#fff;border-radius:12px 12px 0 0!important;font-weight:700}
+  .form-control,.form-select{background:#0f172a;border:1px solid #475569;color:#e2e8f0}
+  .form-control:focus,.form-select:focus{background:#0f172a;color:#e2e8f0;border-color:#0891b2;box-shadow:none}
+  table{color:#e2e8f0}thead{background:#334155}
+  .status-Pending{color:#fbbf24}.status-Shipped{color:#34d399}.status-Cancelled{color:#f87171}
+  option{background:#1e293b}
+</style>
+</head>
+<body>
+<div class="container" style="max-width:1000px">
+  <h2 class="mb-1 text-info">🛒 Order Management</h2>
+  <p class="text-secondary mb-4">Spring Boot + H2 &nbsp;|&nbsp; Port 8026</p>
+
+  <div class="card mb-4">
+    <div class="card-header">Place New Order</div>
+    <div class="card-body">
+      <div class="row g-2">
+        <div class="col-md-4"><input id="customer" class="form-control" placeholder="Customer Name"></div>
+        <div class="col-md-3"><input id="product" class="form-control" placeholder="Product"></div>
+        <div class="col-md-2"><input id="qty" type="number" class="form-control" placeholder="Qty" min="1"></div>
+        <div class="col-md-2"><input id="price" type="number" class="form-control" placeholder="Price"></div>
+        <div class="col-md-1"><button class="btn w-100" style="background:#0891b2;color:#fff" onclick="placeOrder()">Add</button></div>
+      </div>
+      <div id="omsg" class="mt-2 small"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      All Orders
+      <button class="btn btn-sm btn-outline-light" onclick="loadOrders()">↻ Refresh</button>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0">
+        <thead><tr><th>ID</th><th>Customer</th><th>Product</th><th>Qty</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="orderTbl"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const g=id=>document.getElementById(id);
+const BASE='/api/orders';
+
+async function loadOrders(){
+  const r=await fetch(BASE);const d=await r.json();
+  g('orderTbl').innerHTML=d.length?d.map(o=>`<tr>
+    <td>#${o.id}</td><td>${o.customerName||''}</td><td>${o.product||''}</td>
+    <td>${o.quantity||0}</td><td>₹${o.price||0}</td>
+    <td><span class="status-${o.status}">${o.status||'Pending'}</span></td>
+    <td class="d-flex gap-1">
+      <select class="form-select form-select-sm" id="s${o.id}" style="width:110px">
+        <option ${o.status==='Pending'?'selected':''}>Pending</option>
+        <option ${o.status==='Shipped'?'selected':''}>Shipped</option>
+        <option ${o.status==='Delivered'?'selected':''}>Delivered</option>
+        <option ${o.status==='Cancelled'?'selected':''}>Cancelled</option>
+      </select>
+      <button class="btn btn-sm btn-outline-info" onclick="updateStatus(${o.id},'${o.customerName}','${o.product}',${o.quantity},${o.price})">✓</button>
+      <button class="btn btn-sm btn-outline-danger" onclick="deleteOrder(${o.id})">✕</button>
+    </td>
+  </tr>`).join(''):'<tr><td colspan="7" class="text-center text-secondary py-3">No orders yet</td></tr>';
+}
+
+async function placeOrder(){
+  const body={customerName:g('customer').value,product:g('product').value,quantity:+g('qty').value,price:+g('price').value};
+  if(!body.customerName||!body.product){g('omsg').innerHTML='<span class="text-danger">Customer and product required</span>';return;}
+  const r=await fetch(BASE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(r.ok){g('omsg').innerHTML='<span class="text-success">✓ Order placed</span>';['customer','product','qty','price'].forEach(i=>g(i).value='');loadOrders();}
+  else g('omsg').innerHTML='<span class="text-danger">Error placing order</span>';
+}
+
+async function updateStatus(id,customerName,product,quantity,price){
+  const status=g('s'+id).value;
+  await fetch(BASE+'/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerName,product,quantity,price,status})});
+  loadOrders();
+}
+
+async function deleteOrder(id){
+  await fetch(BASE+'/'+id,{method:'DELETE'});loadOrders();
+}
+
+loadOrders();
+</script>
+</body>
+</html>
